@@ -9,6 +9,7 @@ import (
 var (
 	PERSONAL = "personal"
 	DONATION = "donation"
+	KRECEIPT = "k-receipt"
 )
 
 type Deductor interface {
@@ -29,12 +30,25 @@ type Donation struct {
 	amount float64
 }
 
+type KReceipt struct {
+	DB     *sql.DB
+	amount float64
+}
+
 func (p *Personal) get() float64 {
 	return (&db.Allowance{AllowanceType: PERSONAL}).SearchByType(p.DB).Amount
 }
 
 func (d *Donation) get() float64 {
 	maximumDonationAmount := (&db.Allowance{AllowanceType: DONATION}).SearchByType(d.DB).Amount
+	if d.amount > maximumDonationAmount {
+		return maximumDonationAmount
+	}
+	return d.amount
+}
+
+func (d *KReceipt) get() float64 {
+	maximumDonationAmount := (&db.Allowance{AllowanceType: KRECEIPT}).SearchByType(d.DB).Amount
 	if d.amount > maximumDonationAmount {
 		return maximumDonationAmount
 	}
@@ -49,6 +63,8 @@ func setDeductors(allowances []Allowance, DB *sql.DB) []Deductor {
 			deductors = append(deductors, &Donation{amount: *allowance.Amount, DB: DB})
 		case PERSONAL:
 			deductors = append(deductors, &Personal{DB: DB})
+		case KRECEIPT:
+			deductors = append(deductors, &KReceipt{amount: *allowance.Amount, DB: DB})
 		}
 	}
 	return deductors
