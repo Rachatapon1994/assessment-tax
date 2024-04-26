@@ -14,19 +14,23 @@ func mockAllowanceDb(t *testing.T) *sql.DB {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
+	rowsDonation := mock.NewRows([]string{"id", "allowance_type", "amount"}).
+		AddRow(2, "donation", 100000.00)
 	rowsPersonal := mock.NewRows([]string{"id", "allowance_type", "amount"}).
 		AddRow(1, "personal", 60000.00)
 	rowsAll := mock.NewRows([]string{"id", "allowance_type", "amount"}).
-		AddRow(1, "personal", 60000.00)
+		AddRow(1, "personal", 60000.00).
+		AddRow(2, "donation", 100000.00)
 	insertAllowanceSql := "INSERT INTO allowance (allowance_type, amount) VALUES ($1,$2)"
 	createTableSql := "CREATE TABLE IF NOT EXISTS allowance ( id SERIAL PRIMARY KEY, allowance_type TEXT UNIQUE, amount float)"
 
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
 	searchAllAllowanceSql := "SELECT id, allowance_type, amount FROM allowance"
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("insurance").WillReturnRows(mock.NewRows([]string{"id", "allowance_type", "amount"}))
 	mock.ExpectQuery(searchAllAllowanceSql).WillReturnRows(rowsAll)
-	mock.ExpectExec(insertAllowanceSql).WithArgs("personal", 60000.00).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(insertAllowanceSql).WithArgs("donation", 60000.00).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(insertAllowanceSql).WithArgs("mockError", 60000.00).WillReturnError(sql.ErrConnDone)
 	mock.ExpectExec(createTableSql).WillReturnResult(sqlmock.NewResult(0, 0))
 	return db
@@ -37,7 +41,7 @@ func Test_getAllowanceDefaultValues(t *testing.T) {
 		name string
 		want []Allowance
 	}{
-		{"Should return list of allowance correctly", []Allowance{{AllowanceType: "personal", Amount: 60000}}},
+		{"Should return list of allowance correctly", []Allowance{{AllowanceType: "personal", Amount: 60000}, {AllowanceType: "donation", Amount: 100000.00}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -57,7 +61,7 @@ func TestSearchAllAllowance(t *testing.T) {
 		args args
 		want []Allowance
 	}{
-		{"Should return all allowances correctly", args{db: mockAllowanceDb(t)}, []Allowance{{Id: 1, AllowanceType: "personal", Amount: 60000}}},
+		{"Should return all allowances correctly", args{db: mockAllowanceDb(t)}, []Allowance{{Id: 1, AllowanceType: "personal", Amount: 60000}, {Id: 2, AllowanceType: "donation", Amount: 100000.00}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -85,6 +89,7 @@ func TestAllowance_SearchByType(t *testing.T) {
 	}{
 		{"Should return empty allowance for any type that does not exist in database", fields{AllowanceType: "insurance"}, args{db: mockAllowanceDb(t)}, Allowance{}},
 		{"Should return allowance for 'personal' type correctly", fields{AllowanceType: "personal"}, args{db: mockAllowanceDb(t)}, Allowance{Id: 1, AllowanceType: "personal", Amount: 60000}},
+		{"Should return allowance for 'donation' type correctly", fields{AllowanceType: "donation"}, args{db: mockAllowanceDb(t)}, Allowance{Id: 2, AllowanceType: "donation", Amount: 100000}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,8 +120,7 @@ func TestAllowance_insert(t *testing.T) {
 		args   args
 		want   error
 	}{
-		{"Should return nil when inserting allowance successfully", fields{AllowanceType: "personal" +
-			"", Amount: 60000.00}, args{db: mockAllowanceDb(t)}, nil},
+		{"Should return nil when inserting allowance successfully", fields{AllowanceType: "donation", Amount: 60000.00}, args{db: mockAllowanceDb(t)}, nil},
 		{"Should return error when inserting allowance unsuccessfully", fields{AllowanceType: "mockError", Amount: 60000.00}, args{db: mockAllowanceDb(t)}, sql.ErrConnDone},
 	}
 	for _, tt := range tests {

@@ -14,6 +14,7 @@ type Allowance struct {
 func getAllowanceDefaultValues() []Allowance {
 	return []Allowance{
 		{AllowanceType: "personal", Amount: 60000.00},
+		{AllowanceType: "donation", Amount: 100000.00},
 	}
 }
 

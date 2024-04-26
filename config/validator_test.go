@@ -2,8 +2,9 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/Rachatapon1994/assessment-tax/tax"
 	"testing"
+
+	"github.com/Rachatapon1994/assessment-tax/tax"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -45,6 +46,12 @@ func TestCustomValidator_Validate(t *testing.T) {
 	mockJsonWhtLessThanZero := &tax.Calculation{}
 	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": -1.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonWhtLessThanZero)
 
+	mockJsonAllowanceTypeNotInTheList := &tax.Calculation{}
+	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": 40000.0,  "allowances": [    {      "allowanceType": "insurance",      "amount": 0.0    }  ]}`), mockJsonAllowanceTypeNotInTheList)
+
+	mockJsonAmountLessThanZero := &tax.Calculation{}
+	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": 40000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": -10.0    }  ]}`), mockJsonAmountLessThanZero)
+
 	type fields struct {
 		Validator *validator.Validate
 	}
@@ -61,6 +68,8 @@ func TestCustomValidator_Validate(t *testing.T) {
 		{"Should validate unsuccessful when Wht  > Total Income", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonWhtMoreThanTotalIncome}, true},
 		{"Should validate unsuccessful when Total Income < 0", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonTotalIncomeLessThanZero}, true},
 		{"Should validate unsuccessful when Wht < 0", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonWhtLessThanZero}, true},
+		{"Should validate unsuccessful when Allowance Type is not in the validator list", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonAllowanceTypeNotInTheList}, true},
+		{"Should validate unsuccessful when Amount < 0", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonAmountLessThanZero}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
