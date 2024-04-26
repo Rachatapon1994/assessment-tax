@@ -38,11 +38,15 @@ func mockHandlerDb(t *testing.T) *sql.DB {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
+	rowsDonation := mock.NewRows([]string{"id", "allowance_type", "amount"}).
+		AddRow(2, "donation", 100000.00)
+
 	rowsPersonal := mock.NewRows([]string{"id", "allowance_type", "amount"}).
 		AddRow(1, "personal", 60000.00)
 
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	return db
 }
 

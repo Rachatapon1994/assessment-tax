@@ -8,6 +8,7 @@ import (
 
 var (
 	PERSONAL = "personal"
+	DONATION = "donation"
 )
 
 type Deductor interface {
@@ -23,14 +24,29 @@ type Personal struct {
 	DB *sql.DB
 }
 
+type Donation struct {
+	DB     *sql.DB
+	amount float64
+}
+
 func (p *Personal) get() float64 {
 	return (&db.Allowance{AllowanceType: PERSONAL}).SearchByType(p.DB).Amount
+}
+
+func (d *Donation) get() float64 {
+	maximumDonationAmount := (&db.Allowance{AllowanceType: DONATION}).SearchByType(d.DB).Amount
+	if d.amount > maximumDonationAmount {
+		return maximumDonationAmount
+	}
+	return d.amount
 }
 
 func setDeductors(allowances []Allowance, DB *sql.DB) []Deductor {
 	deductors := make([]Deductor, 0)
 	for _, allowance := range allowances {
 		switch allowance.AllowanceType {
+		case DONATION:
+			deductors = append(deductors, &Donation{amount: *allowance.Amount, DB: DB})
 		case PERSONAL:
 			deductors = append(deductors, &Personal{DB: DB})
 		}

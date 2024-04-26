@@ -14,8 +14,8 @@ type (
 	}
 
 	Allowance struct {
-		AllowanceType string   `json:"allowanceType"`
-		Amount        *float64 `json:"amount"`
+		AllowanceType string   `json:"allowanceType" validate:"oneof=donation"`
+		Amount        *float64 `json:"amount" validate:"required,numeric,gte=0"`
 	}
 )
 
