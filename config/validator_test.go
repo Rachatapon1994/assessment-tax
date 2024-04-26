@@ -36,8 +36,14 @@ func TestCustomValidator_Validate(t *testing.T) {
 	mockJsonSuccess := &tax.Calculation{}
 	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": 40000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonSuccess)
 
+	mockJsonWhtMoreThanTotalIncome := &tax.Calculation{}
+	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonWhtMoreThanTotalIncome)
+
 	mockJsonTotalIncomeLessThanZero := &tax.Calculation{}
 	json.Unmarshal([]byte(`{  "totalIncome": -1.0,  "wht": 40000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonTotalIncomeLessThanZero)
+
+	mockJsonWhtLessThanZero := &tax.Calculation{}
+	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": -1.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonWhtLessThanZero)
 
 	type fields struct {
 		Validator *validator.Validate
@@ -52,7 +58,9 @@ func TestCustomValidator_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"Should validate success when JSON data meet validator", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonSuccess}, false},
+		{"Should validate unsuccessful when Wht  > Total Income", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonWhtMoreThanTotalIncome}, true},
 		{"Should validate unsuccessful when Total Income < 0", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonTotalIncomeLessThanZero}, true},
+		{"Should validate unsuccessful when Wht < 0", fields{Validator: validator.New(validator.WithRequiredStructEnabled())}, args{i: mockJsonWhtLessThanZero}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
