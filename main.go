@@ -37,6 +37,7 @@ func main() {
 	adminHandler := admin.Handler{DB: db}
 	ag.Use(middleware.BasicAuth(mw.Authenticate()))
 	ag.POST("/deductions/personal", adminHandler.DeductionPersonalHandler)
+	ag.POST("/deductions/k-receipt", adminHandler.DeductionKReceiptHandler)
 
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%v", os.Getenv("PORT"))); err != nil && err != http.ErrServerClosed { // Start server
