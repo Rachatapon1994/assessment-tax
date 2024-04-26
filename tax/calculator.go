@@ -2,6 +2,7 @@ package tax
 
 import (
 	"database/sql"
+
 	"github.com/Rachatapon1994/assessment-tax/db"
 )
 
@@ -14,6 +15,7 @@ type Deductor interface {
 }
 type Calculator struct {
 	TotalIncome float64
+	Wht         float64
 	Deductors   []Deductor
 }
 
@@ -62,5 +64,5 @@ func (c *Calculator) calculate() float64 {
 	for _, taxLevel := range calculateTaxLevels(c.TotalIncome - c.sumDeduction()) {
 		result += taxLevel
 	}
-	return result
+	return result - c.Wht
 }

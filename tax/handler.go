@@ -9,7 +9,7 @@ import (
 type (
 	Calculation struct {
 		TotalIncome *float64    `json:"totalIncome" validate:"required,numeric,gte=0"`
-		Wht         *float64    `json:"wht"`
+		Wht         *float64    `json:"wht" validate:"required,numeric,gte=0,ltefield=TotalIncome"`
 		Allowances  []Allowance `json:"allowances" validate:"dive"`
 	}
 
@@ -55,6 +55,6 @@ func (h *Handler) CalculationHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
 	}
 	tc.Allowances = append(tc.Allowances, Allowance{AllowanceType: PERSONAL})
-	calculator := &Calculator{TotalIncome: *tc.TotalIncome, Deductors: setDeductors(tc.Allowances, h.DB)}
+	calculator := &Calculator{TotalIncome: *tc.TotalIncome, Wht: *tc.Wht, Deductors: setDeductors(tc.Allowances, h.DB)}
 	return c.JSON(http.StatusOK, Result{Tax: calculator.calculate()})
 }

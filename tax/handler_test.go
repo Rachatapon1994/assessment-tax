@@ -83,7 +83,7 @@ func Test_validateInput(t *testing.T) {
 		wantErrorMessage string
 	}{
 		{"Should validate input failed when JSON is incorrect format", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances":     {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Error when binding JSON"},
-		{"Should validate input failed when JSON data is not meet validator setup", args{mockPostTaxCalculationContext(`{  "totalIncome": -1.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input failed when JSON data is not meet validator setup", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
 		{"Should validate input success when JSON data is correctly and meet validator setup", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, false, ""},
 	}
 	for _, tt := range tests {
@@ -111,7 +111,7 @@ func TestHandler_CalculationHandler(t *testing.T) {
 		c mockHandlerContext
 	}
 
-	mockContext400WhenInputFieldsNotMeetValidator := mockPostTaxCalculationContext(`{  "totalIncome": -1.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
+	mockContext400WhenInputFieldsNotMeetValidator := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 	mockContextSuccessWhenWhtZeroAndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 
 	tests := []struct {

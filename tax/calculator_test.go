@@ -2,9 +2,10 @@ package tax
 
 import (
 	"database/sql"
-	"github.com/DATA-DOG/go-sqlmock"
 	"reflect"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func mockCalculatorDb(t *testing.T) *sql.DB {
@@ -77,6 +78,7 @@ func TestCalculator_sumDeduction(t *testing.T) {
 	t.Parallel()
 	type fields struct {
 		TotalIncome float64
+		Wht         float64
 		Deductors   []Deductor
 	}
 	tests := []struct {
@@ -84,13 +86,14 @@ func TestCalculator_sumDeduction(t *testing.T) {
 		fields fields
 		want   float64
 	}{
-		{"Should return sum of deduction = 60000 when allowance has only personal deduction", fields{500000.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 60000},
-		{"Should return sum of deduction = 0 when Deduction is empty", fields{500000.0, make([]Deductor, 0)}, 0},
+		{"Should return sum of deduction = 60000 when allowance has only personal deduction", fields{500000.0, 0.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 60000},
+		{"Should return sum of deduction = 0 when Deduction is empty", fields{500000.0, 0.0, make([]Deductor, 0)}, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Calculator{
 				TotalIncome: tt.fields.TotalIncome,
+				Wht:         tt.fields.Wht,
 				Deductors:   tt.fields.Deductors,
 			}
 			if got := c.sumDeduction(); got != tt.want {
@@ -133,6 +136,7 @@ func TestCalculator_calculate(t *testing.T) {
 	t.Parallel()
 	type fields struct {
 		TotalIncome float64
+		Wht         float64
 		Deductors   []Deductor
 	}
 	tests := []struct {
@@ -140,12 +144,14 @@ func TestCalculator_calculate(t *testing.T) {
 		fields fields
 		want   float64
 	}{
-		{"Should return tax = 29000 when income = 500000 and allowance has only personal deduction", fields{500000.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 29000},
+		{"Should return tax = 29000 when income = 500000 and allowance has only personal deduction", fields{500000.0, 0.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 29000},
+		{"Should return tax = 4000 when income = 500000, wht = 25000 and allowance has only personal deduction", fields{500000.0, 25000.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 4000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Calculator{
 				TotalIncome: tt.fields.TotalIncome,
+				Wht:         tt.fields.Wht,
 				Deductors:   tt.fields.Deductors,
 			}
 			if got := c.calculate(); got != tt.want {
