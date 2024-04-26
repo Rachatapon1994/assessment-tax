@@ -119,6 +119,8 @@ func TestHandler_CalculationHandler(t *testing.T) {
 	mockContextSuccessWhenWhtZeroAndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 	mockContextSuccessWhenWht5000AndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 	mockContextSuccessWhenWht5000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
+	mockContextSuccessWhenWht28000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 28000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
+	mockContextSuccessWhenWht30000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 30000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
 
 	tests := []struct {
 		name               string
@@ -128,9 +130,11 @@ func TestHandler_CalculationHandler(t *testing.T) {
 		wantResponseStatus int
 	}{
 		{"Should return response with status 400 input failed when JSON data is not meet validator setup", fields{DB: mockHandlerDb(t)}, args{c: mockContext400WhenInputFieldsNotMeetValidator}, Err{Message: "Validation fields does not pass"}, 400},
-		{"Should return successful response when WHT = 0 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWhtZeroAndNotAllowance}, Result{29000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
-		{"Should return successful response when WHT = 5000 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndNotAllowance}, Result{24000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
-		{"Should return successful response when WHT = 5000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndDonation10000}, Result{23000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 0 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWhtZeroAndNotAllowance}, Result{29000, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 5000 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndNotAllowance}, Result{24000, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 5000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndDonation10000}, Result{23000, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 28000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht28000AndDonation10000}, Result{0, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 30000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht30000AndDonation10000}, Result{0, 2000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

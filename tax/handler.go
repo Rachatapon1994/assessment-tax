@@ -3,6 +3,7 @@ package tax
 import (
 	"database/sql"
 	"github.com/labstack/echo/v4"
+	"math"
 	"net/http"
 )
 
@@ -36,8 +37,9 @@ func (e *Err) Error() string {
 }
 
 type Result struct {
-	Tax      float64    `json:"tax"`
-	TaxLevel []TaxLevel `json:"taxLevel"`
+	Tax       float64    `json:"tax"`
+	TaxRefund float64    `json:"taxRefund"`
+	TaxLevel  []TaxLevel `json:"taxLevel"`
 }
 
 type TaxLevel struct {
@@ -63,5 +65,11 @@ func (h *Handler) CalculationHandler(c echo.Context) error {
 	tc.Allowances = append(tc.Allowances, Allowance{AllowanceType: PERSONAL})
 	calculator := &Calculator{TotalIncome: *tc.TotalIncome, Wht: *tc.Wht, Deductors: setDeductors(tc.Allowances, h.DB)}
 	taxAmount, taxLevels := calculator.calculate()
-	return c.JSON(http.StatusOK, Result{Tax: taxAmount, TaxLevel: taxLevels})
+	var result Result
+	if math.Signbit(taxAmount) {
+		result = Result{TaxRefund: math.Abs(taxAmount), TaxLevel: taxLevels}
+	} else {
+		result = Result{Tax: taxAmount, TaxLevel: taxLevels}
+	}
+	return c.JSON(http.StatusOK, result)
 }
