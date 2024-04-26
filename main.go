@@ -31,6 +31,7 @@ func main() {
 	tg := e.Group("/tax")
 	taxHandler := tax.Handler{DB: db}
 	tg.POST("/calculations", taxHandler.CalculationHandler)
+	tg.POST("/calculations/upload-csv", taxHandler.CalculationCsvHandler)
 
 	ag := e.Group("/admin")
 	adminHandler := admin.Handler{DB: db}

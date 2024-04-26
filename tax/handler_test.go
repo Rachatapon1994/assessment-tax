@@ -1,12 +1,14 @@
 package tax
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Rachatapon1994/assessment-tax/config"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -31,6 +33,25 @@ func mockPostTaxCalculationContext(body string) mockHandlerContext {
 	}
 }
 
+func mockPostTaxCalculationCsvContext(fieldName string, fileName string, fileContent string) mockHandlerContext {
+	var buf bytes.Buffer
+	multipartWriter := multipart.NewWriter(&buf)
+	defer multipartWriter.Close()
+
+	filePart, _ := multipartWriter.CreateFormFile(fieldName, fileName)
+	filePart.Write([]byte(fileContent))
+
+	e := echo.New()
+	e.Validator = &config.CustomValidator{Validator: validator.New(validator.WithRequiredStructEnabled())}
+	req := httptest.NewRequest(http.MethodPost, "/tax/calculations/upload-csv", &buf)
+	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+	rec := httptest.NewRecorder()
+	return mockHandlerContext{
+		e.NewContext(req, rec),
+		rec,
+	}
+}
+
 func mockHandlerDb(t *testing.T) *sql.DB {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	mock.MatchExpectationsInOrder(false)
@@ -46,6 +67,10 @@ func mockHandlerDb(t *testing.T) *sql.DB {
 
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	return db
 }
@@ -150,6 +175,79 @@ func TestHandler_CalculationHandler(t *testing.T) {
 
 			if tt.wantResponseStatus == 200 {
 				result := Result{}
+				if err := json.Unmarshal(tt.args.c.r.Body.Bytes(), &result); err != nil {
+					t.Errorf("unable to unmarshal json: %v", err)
+				}
+
+				if !reflect.DeepEqual(result, tt.wantResponseBody) {
+					t.Errorf("expected (%v), got (%v)", tt.wantResponseBody, result)
+				}
+			} else {
+				result := Err{}
+				if err := json.Unmarshal(tt.args.c.r.Body.Bytes(), &result); err != nil {
+					t.Errorf("unable to unmarshal json: %v", err)
+				}
+
+				if !reflect.DeepEqual(result, tt.wantResponseBody) {
+					t.Errorf("expected (%v), got (%v)", tt.wantResponseBody, result)
+				}
+			}
+
+			if tt.args.c.r.Code != tt.wantResponseStatus {
+				t.Errorf("expected (%v), got (%v)", tt.wantResponseStatus, tt.args.c.r.Code)
+			}
+		})
+	}
+}
+
+func TestHandler_CalculationCsvHandler(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		DB *sql.DB
+	}
+	type args struct {
+		c mockHandlerContext
+	}
+
+	mockContextMultipartCsvSuccess := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation\n500000,0,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenCsvIsIncorrectFormat := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation\n5000000,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenFieldNameIsNotTaxFile := mockPostTaxCalculationCsvContext("taxFile1", "taxes.csv", "totalIncome,wht,donation\n500000,0,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenFileNameIsNotTaxesCsv := mockPostTaxCalculationCsvContext("taxFile", "taxes1.csv", "totalIncome,wht,donation\n500000,0,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenCsvHeaderIsInvalid := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation1\n500000,0,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenTotalIncomeIsNotNumber := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation\ndadsa,0,0\n600000,40000,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenWhtIsNotNumber := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation\n500000,0,0\n600000,dsadas,20000\n750000,50000,15000\n")
+	mockContextMultipartCsvErrorWhenDonationIsNotNumber := mockPostTaxCalculationCsvContext("taxFile", "taxes.csv", "totalIncome,wht,donation\n500000,0,0\n600000,40000,20000\n750000,50000,dsadsa\n")
+
+	tests := []struct {
+		name               string
+		fields             fields
+		args               args
+		wantResponseBody   interface{}
+		wantResponseStatus int
+	}{
+		{"Should return successful response when csv is correct format", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvSuccess}, CsvResult{[]CsvTaxesResult{{500000, 29000, 0}, {600000, 10000, 0}, {750000, 22500, 0}}}, 200},
+		{"Should return unsuccessful response when csv is incorrect format", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenCsvIsIncorrectFormat}, Err{Message: "Error while reading CSV file : record on line 2: wrong number of fields"}, 400},
+		{"Should return unsuccessful response when field name is not taxFile", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenFieldNameIsNotTaxFile}, Err{Message: "No file key: taxFile in form-data"}, 400},
+		{"Should return unsuccessful response when file name is not taxes.csv", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenFileNameIsNotTaxesCsv}, Err{Message: "File name must be taxes.csv"}, 400},
+		{"Should return unsuccessful response when csv header is invalid", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenCsvHeaderIsInvalid}, Err{Message: "CSV header doesn't matches with validator : totalIncome, wht, donation"}, 400},
+		{"Should return unsuccessful response when total income is not number", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenTotalIncomeIsNotNumber}, Err{Message: "Cannot convert CSV data to float64 : strconv.ParseFloat: parsing \"dadsa\": invalid syntax"}, 400},
+		{"Should return unsuccessful response when wht is not number", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenWhtIsNotNumber}, Err{Message: "Cannot convert CSV data to float64 : strconv.ParseFloat: parsing \"dsadas\": invalid syntax"}, 400},
+		{"Should return unsuccessful response when donation is not number", fields{DB: mockHandlerDb(t)}, args{c: mockContextMultipartCsvErrorWhenDonationIsNotNumber}, Err{Message: "Cannot convert CSV data to float64 : strconv.ParseFloat: parsing \"dsadsa\": invalid syntax"}, 400},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer tt.fields.DB.Close()
+
+			h := &Handler{
+				DB: tt.fields.DB,
+			}
+
+			if err := h.CalculationCsvHandler(tt.args.c.c); err != nil {
+				t.Errorf("Handler.CalculationCsvHandler() error = %v", err)
+			}
+
+			if tt.wantResponseStatus == 200 {
+				result := CsvResult{}
 				if err := json.Unmarshal(tt.args.c.r.Body.Bytes(), &result); err != nil {
 					t.Errorf("unable to unmarshal json: %v", err)
 				}
