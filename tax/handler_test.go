@@ -65,6 +65,9 @@ func mockHandlerDb(t *testing.T) *sql.DB {
 	rowsPersonal := mock.NewRows([]string{"id", "allowance_type", "amount"}).
 		AddRow(1, "personal", 60000.00)
 
+	rowsKReceipt := mock.NewRows([]string{"id", "allowance_type", "amount"}).
+		AddRow(1, "k-receipt", 50000.00)
+
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
@@ -72,6 +75,7 @@ func mockHandlerDb(t *testing.T) *sql.DB {
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("k-receipt").WillReturnRows(rowsKReceipt)
 	return db
 }
 
@@ -112,8 +116,13 @@ func Test_validateInput(t *testing.T) {
 		wantErrorMessage string
 	}{
 		{"Should validate input failed when JSON is incorrect format", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances":     {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Error when binding JSON"},
-		{"Should validate input failed when JSON data is not meet validator setup", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
-		{"Should validate input success when JSON data is correctly and meet validator setup", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, false, ""},
+		{"Should validate input failed when Wht  > Total Income", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input failed when Total Income < 0", args{mockPostTaxCalculationContext(`{  "totalIncome": -1.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input failed when Total Income < 0", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": -1.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input failed when JSON allowance is not in the validator list (donation,ktc-receipt)", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }, {      "allowanceType": "ktc-receipt",      "amount": 10.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input failed when amount < 0", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": -1.0    }  ]}`), &Calculation{}}, true, "Validation fields does not pass"},
+		{"Should validate input success when JSON data is correctly and meet validator setup (donation)", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), &Calculation{}}, false, ""},
+		{"Should validate input success when JSON data is correctly and meet validator setup (donation,k-receipt)", args{mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }, {      "allowanceType": "k-receipt",      "amount": 10.0    }  ]}`), &Calculation{}}, false, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,7 +154,9 @@ func TestHandler_CalculationHandler(t *testing.T) {
 	mockContextSuccessWhenWht5000AndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 	mockContextSuccessWhenWht5000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
 	mockContextSuccessWhenWht28000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 28000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
+	mockContextSuccessWhenWht28000AndDonation10000AndKReceipt20000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 28000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }, {      "allowanceType": "k-receipt",      "amount": 20000.0    }  ]}`)
 	mockContextSuccessWhenWht30000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 30000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
+	mockContextSuccessWhenWht30000AndDonation10000AndKReceipt50000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 30000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    },{      "allowanceType": "k-receipt",      "amount": 50000.0    }  ]}`)
 
 	tests := []struct {
 		name               string
@@ -159,7 +170,9 @@ func TestHandler_CalculationHandler(t *testing.T) {
 		{"Should return successful response when WHT = 5000 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndNotAllowance}, Result{24000, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 		{"Should return successful response when WHT = 5000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndDonation10000}, Result{23000, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 		{"Should return successful response when WHT = 28000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht28000AndDonation10000}, Result{0, 0, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 28000 and Donation = 10000 and K-receipt = 20000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht28000AndDonation10000AndKReceipt20000}, Result{0, 2000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 26000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 		{"Should return successful response when WHT = 30000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht30000AndDonation10000}, Result{0, 2000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 30000 and Donation = 10000 and K-receipt = 50000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht30000AndDonation10000AndKReceipt50000}, Result{0, 7000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 23000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -27,6 +27,8 @@ func TestInitDB(t *testing.T) {
 	mock.ExpectExec(insertAllowanceSql).WithArgs("personal", 60000.00).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(mock.NewRows([]string{"id", "allowance_type", "amount"}))
 	mock.ExpectExec(insertAllowanceSql).WithArgs("donation", 100000.00).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("k-receipt").WillReturnRows(mock.NewRows([]string{"id", "allowance_type", "amount"}))
+	mock.ExpectExec(insertAllowanceSql).WithArgs("k-receipt", 50000.00).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery(searchAllAllowanceSql).WillReturnRows(rowsAll)
 
 	t.Run("Should run dbPreparation correctly", func(t *testing.T) {

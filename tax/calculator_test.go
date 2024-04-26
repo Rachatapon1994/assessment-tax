@@ -19,10 +19,13 @@ func mockCalculatorDb(t *testing.T) *sql.DB {
 		AddRow(1, "personal", 60000.00)
 	rowsDonation := mock.NewRows([]string{"id", "allowance_type", "amount"}).
 		AddRow(2, "donation", 100000.00)
+	rowsKReceipt := mock.NewRows([]string{"id", "allowance_type", "amount"}).
+		AddRow(3, "k-receipt", 50000.00)
 
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("personal").WillReturnRows(rowsPersonal)
 	mock.ExpectQuery(SearchByTypeSql).WithArgs("donation").WillReturnRows(rowsDonation)
+	mock.ExpectQuery(SearchByTypeSql).WithArgs("k-receipt").WillReturnRows(rowsKReceipt)
 	return db
 }
 
@@ -69,6 +72,34 @@ func TestDonation_get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tt.fields.DB.Close()
 			d := &Donation{
+				DB:     tt.fields.DB,
+				amount: tt.fields.amount,
+			}
+			if got := d.get(); got != tt.want {
+				t.Errorf("Donation.get() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKReceipt_get(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		DB     *sql.DB
+		amount float64
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   float64
+	}{
+		{"Donation should get allowance correctly when input amount < max value", fields{mockCalculatorDb(t), 30000.00}, 30000.00},
+		{"Donation should get allowance correctly when input amount > max value", fields{mockCalculatorDb(t), 60000.00}, 50000.00},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer tt.fields.DB.Close()
+			d := &KReceipt{
 				DB:     tt.fields.DB,
 				amount: tt.fields.amount,
 			}
