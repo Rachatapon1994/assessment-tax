@@ -36,7 +36,13 @@ func (e *Err) Error() string {
 }
 
 type Result struct {
-	Tax float64 `json:"tax"`
+	Tax      float64    `json:"tax"`
+	TaxLevel []TaxLevel `json:"taxLevel"`
+}
+
+type TaxLevel struct {
+	Level string  `json:"level"`
+	Tax   float64 `json:"tax"`
 }
 
 func validateInput(c echo.Context, tc *Calculation) error {
@@ -56,5 +62,6 @@ func (h *Handler) CalculationHandler(c echo.Context) error {
 	}
 	tc.Allowances = append(tc.Allowances, Allowance{AllowanceType: PERSONAL})
 	calculator := &Calculator{TotalIncome: *tc.TotalIncome, Wht: *tc.Wht, Deductors: setDeductors(tc.Allowances, h.DB)}
-	return c.JSON(http.StatusOK, Result{Tax: calculator.calculate()})
+	taxAmount, taxLevels := calculator.calculate()
+	return c.JSON(http.StatusOK, Result{Tax: taxAmount, TaxLevel: taxLevels})
 }

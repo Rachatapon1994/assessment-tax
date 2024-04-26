@@ -2,8 +2,8 @@ package tax
 
 import (
 	"database/sql"
-
 	"github.com/Rachatapon1994/assessment-tax/db"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -57,28 +57,39 @@ func setDeductors(allowances []Allowance, DB *sql.DB) []Deductor {
 func (c *Calculator) sumDeduction() float64 {
 	result := 0.0
 	for _, deduction := range c.Deductors {
-		result += deduction.get()
+		deductionValue, _ := decimal.NewFromFloat(deduction.get()).Add(decimal.NewFromFloat(result)).Float64()
+		result = deductionValue
 	}
 	return result
 }
 
-func calculateTaxLevels(income float64) []float64 {
-	result := make([]float64, 0)
+func calculateTaxLevels(income float64) []TaxLevel {
+	result := make([]TaxLevel, 0)
+	passLastTaxLevel := false
 	for _, taxLevel := range getLevels() {
-		if income > taxLevel.endAmount {
-			result = append(result, taxLevel.maxDeduction)
+		if income > taxLevel.EndAmount {
+			result = append(result, TaxLevel{Tax: taxLevel.MaxDeduction, Level: taxLevel.Name})
 		} else {
-			result = append(result, (income-taxLevel.startAmount+1)*(taxLevel.percentage/100))
-			break
+			if !passLastTaxLevel {
+				differenceValue := decimal.NewFromFloat(income).Sub(decimal.NewFromFloat(taxLevel.StartAmount)).Add(decimal.NewFromFloat(1))
+				percentageValue := decimal.NewFromFloat(taxLevel.Percentage).Div(decimal.NewFromFloat(100))
+				tax, _ := differenceValue.Mul(percentageValue).Float64()
+				result = append(result, TaxLevel{Tax: tax, Level: taxLevel.Name})
+				passLastTaxLevel = true
+			} else {
+				result = append(result, TaxLevel{Tax: 0, Level: taxLevel.Name})
+			}
 		}
 	}
 	return result
 }
 
-func (c *Calculator) calculate() float64 {
+func (c *Calculator) calculate() (float64, []TaxLevel) {
 	result := 0.0
-	for _, taxLevel := range calculateTaxLevels(c.TotalIncome - c.sumDeduction()) {
-		result += taxLevel
+	taxLevels := calculateTaxLevels(c.TotalIncome - c.sumDeduction())
+	for _, taxLevel := range taxLevels {
+		result += taxLevel.Tax
 	}
-	return result - c.Wht
+	tax, _ := decimal.NewFromFloat(result).Sub(decimal.NewFromFloat(c.Wht)).Float64()
+	return tax, taxLevels
 }

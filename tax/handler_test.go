@@ -117,6 +117,8 @@ func TestHandler_CalculationHandler(t *testing.T) {
 
 	mockContext400WhenInputFieldsNotMeetValidator := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 500001.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
 	mockContextSuccessWhenWhtZeroAndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 0.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
+	mockContextSuccessWhenWht5000AndNotAllowance := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`)
+	mockContextSuccessWhenWht5000AndDonation10000 := mockPostTaxCalculationContext(`{  "totalIncome": 500000.0,  "wht": 5000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 10000.0    }  ]}`)
 
 	tests := []struct {
 		name               string
@@ -126,7 +128,9 @@ func TestHandler_CalculationHandler(t *testing.T) {
 		wantResponseStatus int
 	}{
 		{"Should return response with status 400 input failed when JSON data is not meet validator setup", fields{DB: mockHandlerDb(t)}, args{c: mockContext400WhenInputFieldsNotMeetValidator}, Err{Message: "Validation fields does not pass"}, 400},
-		{"Should return successful response when WHT = 0 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWhtZeroAndNotAllowance}, Result{Tax: 29000}, 200},
+		{"Should return successful response when WHT = 0 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWhtZeroAndNotAllowance}, Result{29000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 5000 and no allowance", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndNotAllowance}, Result{24000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
+		{"Should return successful response when WHT = 5000 and Donation = 10000", fields{DB: mockHandlerDb(t)}, args{c: mockContextSuccessWhenWht5000AndDonation10000}, Result{23000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 28000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}}, 200},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -147,7 +151,7 @@ func TestHandler_CalculationHandler(t *testing.T) {
 				}
 
 				if !reflect.DeepEqual(result, tt.wantResponseBody) {
-					t.Errorf("expected (%v), got (%v)", result, tt.wantResponseBody)
+					t.Errorf("expected (%v), got (%v)", tt.wantResponseBody, result)
 				}
 			} else {
 				result := Err{}
@@ -156,12 +160,12 @@ func TestHandler_CalculationHandler(t *testing.T) {
 				}
 
 				if !reflect.DeepEqual(result, tt.wantResponseBody) {
-					t.Errorf("expected (%v), got (%v)", result, tt.wantResponseBody)
+					t.Errorf("expected (%v), got (%v)", tt.wantResponseBody, result)
 				}
 			}
 
 			if tt.args.c.r.Code != tt.wantResponseStatus {
-				t.Errorf("expected (%v), got (%v)", tt.args.c.r.Code, tt.wantResponseStatus)
+				t.Errorf("expected (%v), got (%v)", tt.wantResponseStatus, tt.args.c.r.Code)
 			}
 		})
 	}

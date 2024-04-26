@@ -144,17 +144,17 @@ func Test_calculateTaxLevels(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []float64
+		want []TaxLevel
 	}{
-		{"Should return tax information for in first tier correctly", args{income: 100000}, []float64{0}},
-		{"Should return tax information for end of first tier correctly", args{income: 150000}, []float64{0}},
-		{"Should return tax information for in second tier correctly", args{income: 300000}, []float64{0, 15000}},
-		{"Should return tax information for end of second tier correctly", args{income: 500000}, []float64{0, 35000}},
-		{"Should return tax information for in third tier correctly", args{income: 750000}, []float64{0, 35000, 37500}},
-		{"Should return tax information for end of third tier correctly", args{income: 1000000}, []float64{0, 35000, 75000}},
-		{"Should return tax information for in fourth tier correctly", args{income: 1500000}, []float64{0, 35000, 75000, 100000}},
-		{"Should return tax information for end of fourth tier correctly", args{income: 2000000}, []float64{0, 35000, 75000, 200000}},
-		{"Should return tax information for fifth tier correctly", args{income: 2500000}, []float64{0, 35000, 75000, 200000, 175000}},
+		{"Should return tax information for in first tier correctly", args{income: 100000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 0}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for end of first tier correctly", args{income: 150000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 0}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for in second tier correctly", args{income: 300000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 15000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for end of second tier correctly", args{income: 500000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for in third tier correctly", args{income: 750000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 37500}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for end of third tier correctly", args{income: 1000000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 75000}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for in fourth tier correctly", args{income: 1500000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 75000}, {"1,000,001-2,000,000", 100000}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for end of fourth tier correctly", args{income: 2000000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 75000}, {"1,000,001-2,000,000", 200000}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax information for fifth tier correctly", args{income: 2500000}, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 35000}, {"500,001-1,000,000", 75000}, {"1,000,001-2,000,000", 200000}, {"2,000,001 ขึ้นไป", 175000}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -173,13 +173,14 @@ func TestCalculator_calculate(t *testing.T) {
 		Deductors   []Deductor
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   float64
+		name         string
+		fields       fields
+		want         float64
+		wantTaxLevel []TaxLevel
 	}{
-		{"Should return tax = 29000 when income = 500000 and allowance has only personal deduction", fields{500000.0, 0.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 29000},
-		{"Should return tax = 4000 when income = 500000, wht = 25000 and allowance has only personal deduction", fields{500000.0, 25000.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 4000},
-		{"Should return tax = 16500 when income = 500000, wht = 25000 and allowance has personal deduction donation = 20000", fields{500000.0, 2500.0, []Deductor{&Donation{amount: 200000.0, DB: mockCalculatorDb(t)}, &Personal{DB: mockCalculatorDb(t)}}}, 16500},
+		{"Should return tax = 29000 when income = 500000 and allowance has only personal deduction", fields{500000.0, 0.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 29000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax = 4000 when income = 500000, wht = 25000 and allowance has only personal deduction", fields{500000.0, 25000.0, []Deductor{&Personal{DB: mockCalculatorDb(t)}}}, 4000, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 29000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
+		{"Should return tax = 16500 when income = 500000, wht = 25000 and allowance has personal deduction donation = 20000", fields{500000.0, 2500.0, []Deductor{&Donation{amount: 200000.0, DB: mockCalculatorDb(t)}, &Personal{DB: mockCalculatorDb(t)}}}, 16500, []TaxLevel{{"0-150,000", 0}, {"150,001-500,000", 19000}, {"500,001-1,000,000", 0}, {"1,000,001-2,000,000", 0}, {"2,000,001 ขึ้นไป", 0}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -188,8 +189,13 @@ func TestCalculator_calculate(t *testing.T) {
 				Wht:         tt.fields.Wht,
 				Deductors:   tt.fields.Deductors,
 			}
-			if got := c.calculate(); got != tt.want {
+			got, taxLevel := c.calculate()
+			if tt.want != got {
 				t.Errorf("Calculator.calculate() = %v, want %v", got, tt.want)
+			}
+
+			if !reflect.DeepEqual(taxLevel, tt.wantTaxLevel) {
+				t.Errorf("Calculator.calculate() = %v, want %v", taxLevel, tt.wantTaxLevel)
 			}
 		})
 	}
