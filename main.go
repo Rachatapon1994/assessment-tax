@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Rachatapon1994/assessment-tax/config"
-	"github.com/Rachatapon1994/assessment-tax/db"
-	"github.com/Rachatapon1994/assessment-tax/tax"
-	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
+	"github.com/Rachatapon1994/assessment-tax/admin"
+	mw "github.com/Rachatapon1994/assessment-tax/middleware"
+	"github.com/labstack/echo/v4/middleware"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/Rachatapon1994/assessment-tax/config"
+	"github.com/Rachatapon1994/assessment-tax/db"
+	"github.com/Rachatapon1994/assessment-tax/tax"
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
 )
 
 func main() {
@@ -24,8 +28,14 @@ func main() {
 	e := echo.New()
 	e.Validator = &config.CustomValidator{Validator: validator.New(validator.WithRequiredStructEnabled())}
 
+	tg := e.Group("/tax")
 	taxHandler := tax.Handler{DB: db}
-	e.POST("/tax/calculations", taxHandler.CalculationHandler)
+	tg.POST("/calculations", taxHandler.CalculationHandler)
+
+	ag := e.Group("/admin")
+	adminHandler := admin.Handler{DB: db}
+	ag.Use(middleware.BasicAuth(mw.Authenticate()))
+	ag.POST("/deductions/personal", adminHandler.DeductionPersonalHandler)
 
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%v", os.Getenv("PORT"))); err != nil && err != http.ErrServerClosed { // Start server

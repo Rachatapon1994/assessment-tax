@@ -16,7 +16,7 @@ func dbPreparation(db *sql.DB) {
 		allowance := (&Allowance{AllowanceType: aw.AllowanceType}).SearchByType(db)
 		if (Allowance{}) == allowance {
 			allowance := &Allowance{AllowanceType: aw.AllowanceType, Amount: aw.Amount}
-			if err := allowance.insert(db); err != nil {
+			if err := allowance.Insert(db); err != nil {
 				log.Fatal("can't initialize data", err)
 			}
 		}
