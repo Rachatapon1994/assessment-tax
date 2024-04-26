@@ -22,6 +22,7 @@ func mockAllowanceDb(t *testing.T) *sql.DB {
 		AddRow(1, "personal", 60000.00).
 		AddRow(2, "donation", 100000.00)
 	insertAllowanceSql := "INSERT INTO allowance (allowance_type, amount) VALUES ($1,$2)"
+	updateAllowanceSql := "UPDATE allowance SET amount = $1 WHERE allowance_type = $2"
 	createTableSql := "CREATE TABLE IF NOT EXISTS allowance ( id SERIAL PRIMARY KEY, allowance_type TEXT UNIQUE, amount float)"
 
 	SearchByTypeSql := "SELECT id, allowance_type, amount FROM allowance WHERE allowance_type = $1"
@@ -32,11 +33,14 @@ func mockAllowanceDb(t *testing.T) *sql.DB {
 	mock.ExpectQuery(searchAllAllowanceSql).WillReturnRows(rowsAll)
 	mock.ExpectExec(insertAllowanceSql).WithArgs("donation", 60000.00).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(insertAllowanceSql).WithArgs("mockError", 60000.00).WillReturnError(sql.ErrConnDone)
+	mock.ExpectExec(updateAllowanceSql).WithArgs(70000.00, "personal").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(updateAllowanceSql).WithArgs(80000.00, "mockError").WillReturnError(sql.ErrConnDone)
 	mock.ExpectExec(createTableSql).WillReturnResult(sqlmock.NewResult(0, 0))
 	return db
 }
 
 func Test_getAllowanceDefaultValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		want []Allowance
@@ -53,6 +57,7 @@ func Test_getAllowanceDefaultValues(t *testing.T) {
 }
 
 func TestSearchAllAllowance(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		db *sql.DB
 	}
@@ -73,6 +78,7 @@ func TestSearchAllAllowance(t *testing.T) {
 }
 
 func TestAllowance_SearchByType(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		Id            int
 		AllowanceType string
@@ -106,6 +112,7 @@ func TestAllowance_SearchByType(t *testing.T) {
 }
 
 func TestAllowance_insert(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		Id            int
 		AllowanceType string
@@ -130,14 +137,15 @@ func TestAllowance_insert(t *testing.T) {
 				AllowanceType: tt.fields.AllowanceType,
 				Amount:        tt.fields.Amount,
 			}
-			if got := a.insert(tt.args.db); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Allowance.insert() = %v, want %v", got, tt.want)
+			if got := a.Insert(tt.args.db); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Allowance.Insert() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestAllowance_createAllowanceTable(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		db *sql.DB
 	}
@@ -152,6 +160,39 @@ func TestAllowance_createAllowanceTable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := createAllowanceTable(tt.args.db); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Allowance.createAllowanceTable() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAllowance_UpdateByType(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		Id            int
+		AllowanceType string
+		Amount        float64
+	}
+	type args struct {
+		db *sql.DB
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   error
+	}{
+		{"Should return nil when updating allowance successfully", fields{AllowanceType: "personal", Amount: 70000.00}, args{db: mockAllowanceDb(t)}, nil},
+		{"Should return error when updating allowance unsuccessfully", fields{AllowanceType: "mockError", Amount: 80000.00}, args{db: mockAllowanceDb(t)}, sql.ErrConnDone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &Allowance{
+				Id:            tt.fields.Id,
+				AllowanceType: tt.fields.AllowanceType,
+				Amount:        tt.fields.Amount,
+			}
+			if got := a.UpdateByType(tt.args.db); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Allowance.UpdateByType() = %v, want %v", got, tt.want)
 			}
 		})
 	}

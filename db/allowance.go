@@ -25,8 +25,15 @@ func createAllowanceTable(db *sql.DB) error {
 	return nil
 }
 
-func (a *Allowance) insert(db *sql.DB) error {
+func (a *Allowance) Insert(db *sql.DB) error {
 	if _, err := db.Exec("INSERT INTO allowance (allowance_type, amount) VALUES ($1,$2)", a.AllowanceType, a.Amount); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *Allowance) UpdateByType(db *sql.DB) error {
+	if _, err := db.Exec("UPDATE allowance SET amount = $1 WHERE allowance_type = $2", a.Amount, a.AllowanceType); err != nil {
 		return err
 	}
 	return nil

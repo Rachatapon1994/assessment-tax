@@ -10,6 +10,7 @@ import (
 )
 
 func TestValidateError_Error(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		Message string
 	}
@@ -34,6 +35,8 @@ func TestValidateError_Error(t *testing.T) {
 }
 
 func TestCustomValidator_Validate(t *testing.T) {
+	t.Parallel()
+
 	mockJsonSuccess := &tax.Calculation{}
 	json.Unmarshal([]byte(`{  "totalIncome": 500000.0,  "wht": 40000.0,  "allowances": [    {      "allowanceType": "donation",      "amount": 0.0    }  ]}`), mockJsonSuccess)
 

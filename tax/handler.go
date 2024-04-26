@@ -20,10 +20,6 @@ type (
 	}
 )
 
-type HandlerFunction interface {
-	CalculationHandler(c echo.Context) error
-}
-
 type Handler struct {
 	DB *sql.DB
 }
